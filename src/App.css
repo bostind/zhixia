@@ -169,6 +169,11 @@ body {
   box-shadow: 0 0 8px #22c55e;
 }
 
+.status-dot.partial {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
 .main-stage {
   position: relative;
   display: flex;
@@ -3002,6 +3007,140 @@ body {
 
 .settings-page .recent-progress ul {
   max-height: 280px;
+}
+
+/* ================================
+   Responsive Adaptations
+   ================================ */
+
+@media (max-width: 1024px) {
+  .main-stage {
+    padding: 1.25rem;
+  }
+  .search-stage.has-results {
+    transform: translateY(-18vh);
+  }
+  .constellation {
+    padding: 1rem 1.25rem 2rem;
+  }
+  .orbit.graph-orbit {
+    height: 480px;
+  }
+  .query-history-panel {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .main-stage {
+    padding: 0.75rem;
+  }
+  .search-stage.has-results {
+    transform: translateY(-10vh);
+  }
+  .search-input {
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+  }
+  .search-btn {
+    padding: 0.75rem 1.2rem;
+  }
+  .result-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.4rem 0.7rem;
+  }
+  .result-actions-left,
+  .result-actions-right {
+    gap: 0.45rem;
+  }
+  .query-node {
+    font-size: 0.9rem;
+    padding: 0.55rem 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .constellation {
+    padding: 0.75rem 0.75rem 1.5rem;
+  }
+  .constellation-inner {
+    max-width: 100%;
+  }
+  .orbit.graph-orbit {
+    height: 360px;
+  }
+  .list-result-item {
+    padding: 0.5rem 0.6rem;
+    gap: 0.5rem;
+  }
+  .tag-cloud {
+    padding: 0.6rem;
+    gap: 0.4rem;
+  }
+  .library-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .library-stat-card.wide {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    grid-template-columns: 52px 1fr;
+  }
+  .sidebar {
+    padding: 0.75rem 0;
+    gap: 1rem;
+  }
+  .logo-mark {
+    width: 30px;
+    height: 30px;
+    font-size: 0.95rem;
+  }
+  .nav-item {
+    width: 34px;
+    height: 34px;
+    font-size: 1rem;
+  }
+  .main-stage {
+    padding: 0.5rem;
+  }
+  .search-stage.has-results {
+    transform: translateY(-6vh);
+  }
+  .result-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .result-actions-left,
+  .result-actions-right {
+    justify-content: center;
+  }
+  .view-toggle button {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+  }
+  .query-badge {
+    font-size: 0.7rem;
+  }
+  .list-result-meta {
+    display: none;
+  }
+  .settings-page {
+    padding: 1rem;
+  }
+  .orbit.graph-orbit {
+    height: 280px;
+  }
+}
+
+@media (max-height: 640px) {
+  .search-stage.has-results {
+    transform: translateY(-6vh);
+  }
+  .orbit.graph-orbit {
+    height: 280px;
+  }
 }
 
 @media (max-width: 860px) {

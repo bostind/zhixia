@@ -29,6 +29,7 @@ interface SettingsPanelProps {
   handleReindex: () => void;
   openFolder: (path: string) => void;
   showToast?: (msg: string, type?: "success" | "error" | "info") => void;
+  testLlm?: () => Promise<{ ok: boolean; message: string }>;
 }
 
 const PRESETS = [
@@ -55,11 +56,14 @@ export default function SettingsPanel(props: SettingsPanelProps) {
     handleReindex,
     openFolder,
     showToast,
+    testLlm,
   } = props;
 
   const [activeTab, setActiveTab] = useState<"dirs" | "llm" | "system">("dirs");
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [llmTestLoading, setLlmTestLoading] = useState(false);
+  const [llmTestResult, setLlmTestResult] = useState<{ ok?: boolean; message?: string } | null>(null);
 
   const stats = useMemo(() => {
     const all = ingestProgress || [];
@@ -273,14 +277,53 @@ export default function SettingsPanel(props: SettingsPanelProps) {
               </>
             )}
 
-            <button
-              className="settings-save-btn"
-              onClick={saveLlmSettings}
-              disabled={llmSettingsLoading}
-            >
-              {llmSettingsLoading && <span className="settings-spinner" />}
-              {llmSettingsLoading ? "保存中..." : "保存配置"}
-            </button>
+            <div className="settings-row" style={{ display: "flex", gap: "0.6rem", marginTop: "0.4rem" }}>
+              <button
+                className="settings-save-btn"
+                onClick={saveLlmSettings}
+                disabled={llmSettingsLoading}
+                style={{ flex: 1 }}
+              >
+                {llmSettingsLoading && <span className="settings-spinner" />}
+                {llmSettingsLoading ? "保存中..." : "保存配置"}
+              </button>
+              <button
+                className="settings-save-btn secondary"
+                onClick={async () => {
+                  setLlmTestLoading(true);
+                  setLlmTestResult(null);
+                  try {
+                    const res = await (testLlm ? testLlm() : Promise.resolve({ ok: false, message: "未提供测试方法" }));
+                    setLlmTestResult(res);
+                    if (showToast) {
+                      showToast(res.ok ? `连接成功: ${res.message}` : `连接失败: ${res.message}`, res.ok ? "success" : "error");
+                    }
+                  } finally {
+                    setLlmTestLoading(false);
+                  }
+                }}
+                disabled={llmTestLoading}
+              >
+                {llmTestLoading && <span className="settings-spinner" />}
+                {llmTestLoading ? "测试中..." : "测试连接"}
+              </button>
+            </div>
+            {llmTestResult && (
+              <div
+                className="llm-test-result"
+                style={{
+                  marginTop: "0.6rem",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: "10px",
+                  fontSize: "0.85rem",
+                  background: llmTestResult.ok ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
+                  color: llmTestResult.ok ? "#86efac" : "#fca5a5",
+                  border: `1px solid ${llmTestResult.ok ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
+                }}
+              >
+                {llmTestResult.ok ? "✅ 连接成功" : "❌ 连接失败"}: {llmTestResult.message}
+              </div>
+            )}
           </div>
         </div>
       )}

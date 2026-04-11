@@ -114,6 +114,8 @@ function extractFileExplanations(text: string): Record<string, string> {
 
 export default function App() {
   const [pythonStatus, setPythonStatus] = useState<string>("connecting...");
+  const [llmOk, setLlmOk] = useState<boolean>(false);
+  const [llmMsg, setLlmMsg] = useState<string>("");
   const [files, setFiles] = useState<FileItem[]>([]);
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
@@ -186,8 +188,22 @@ export default function App() {
       const res = await fetch(`${API_BASE}/health`);
       const data = await res.json();
       setPythonStatus(data.status === "ok" ? "connected" : "error");
+      setLlmOk(!!data.llm_ok);
+      setLlmMsg(data.llm_message || "");
     } catch (e) {
       setPythonStatus("disconnected");
+      setLlmOk(false);
+      setLlmMsg("");
+    }
+  }
+
+  async function testLlm(): Promise<{ ok: boolean; message: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/test_llm`);
+      const data = await res.json();
+      return { ok: !!data.ok, message: data.message || "" };
+    } catch (e) {
+      return { ok: false, message: String(e) };
     }
   }
 
@@ -554,7 +570,7 @@ export default function App() {
     return files.filter((f) => f.tags && f.tags.split(",").some((t) => t.trim() === libraryTagFilter));
   }, [files, libraryTagFilter]);
 
-  const statusLabel = pythonStatus === "connected" ? "在线" : "离线";
+  const statusLabel = pythonStatus === "connected" ? (llmOk ? "在线" : "服务在线") : "离线";
 
   return (
     <>
@@ -635,7 +651,10 @@ export default function App() {
                 <div className="sidebar-progress-bar" />
               </div>
             )}
-            <div className={`status-dot ${pythonStatus === "connected" ? "connected" : ""}`} title={`Python ${statusLabel}`} />
+            <div
+              className={`status-dot ${pythonStatus === "connected" ? (llmOk ? "connected" : "partial") : ""}`}
+              title={`服务: ${pythonStatus === "connected" ? "在线" : "离线"}\nLLM: ${llmOk ? "可用" : llmMsg || "不可用"}`}
+            />
             <div className="status-label">{statusLabel}</div>
           </div>
         </aside>
@@ -677,6 +696,7 @@ export default function App() {
                 handleReindex={handleReindex}
                 openFolder={openFolder}
                 showToast={showToast}
+                testLlm={testLlm}
               />
             </div>
           )}

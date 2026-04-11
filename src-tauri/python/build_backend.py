@@ -4,6 +4,7 @@ Output goes to ../python-dist/zhixia-backend/
 """
 import sys
 import os
+import shutil
 from pathlib import Path
 
 # Use the project venv python
@@ -106,6 +107,7 @@ args = [
     str(_HERE / "main_api.py"),
     "--name", "zhixia-backend",
     "--onedir",
+    "--windowed",        # 隐藏后端命令行窗口
     "--noconfirm",
     "--clean",
     "--distpath", str(_DIST_DIR),
@@ -126,3 +128,135 @@ from PyInstaller.__main__ import run
 run(args)
 
 print(f"[build_backend] Done. Output at {_DIST_DIR / 'zhixia-backend'}")
+
+# ================================
+# Post-build cleanup: remove dev/runtime data & bloated test files
+# ================================
+backend_dir = _DIST_DIR / "zhixia-backend"
+internal_dir = backend_dir / "_internal"
+
+def rm_tree(path: Path):
+    if path.exists():
+        shutil.rmtree(path, ignore_errors=True)
+        print(f"[cleanup] removed dir: {path}")
+
+def rm_file(path: Path):
+    if path.exists():
+        path.unlink(missing_ok=True)
+        print(f"[cleanup] removed file: {path}")
+
+def rm_glob(root: Path, pattern: str):
+    for p in root.rglob(pattern):
+        if p.is_dir():
+            shutil.rmtree(p, ignore_errors=True)
+        else:
+            p.unlink(missing_ok=True)
+
+# 1. 清理我们自己的开发环境数据
+for dev_dir in ["data", "db", "wiki", "logs"]:
+    rm_tree(_HERE / dev_dir)
+for dev_file in [".env", "ingest_manifest.json", "bm25_corpus.json"]:
+    rm_file(_HERE / dev_file)
+
+# 2. 清理 PyInstaller 输出中的测试/示例冗余数据（大幅减小体积）
+if internal_dir.exists():
+    # sklearn 测试数据
+    rm_tree(internal_dir / "sklearn" / "datasets" / "tests")
+    rm_tree(internal_dir / "sklearn" / "datasets" / "data")
+    rm_tree(internal_dir / "sklearn" / "tests")
+    rm_tree(internal_dir / "sklearn" / "cluster" / "tests")
+    rm_tree(internal_dir / "sklearn" / "linear_model" / "tests")
+    rm_tree(internal_dir / "sklearn" / "metrics" / "tests")
+    rm_tree(internal_dir / "sklearn" / "neighbors" / "tests")
+    rm_tree(internal_dir / "sklearn" / "tree" / "tests")
+
+    # pyarrow 测试数据
+    rm_tree(internal_dir / "pyarrow" / "tests")
+
+    # torch 冗余数据（仅保留推理所需核心模块）
+    rm_tree(internal_dir / "torch" / "_export" / "db")
+    rm_tree(internal_dir / "torch" / "testing" / "_internal")
+    rm_tree(internal_dir / "torch" / "distributed" / "elastic" / "multiprocessing")
+    rm_tree(internal_dir / "torch" / "utils" / "data" / "datapipes")
+    rm_tree(internal_dir / "torch" / "utils" / "data" / "backward_compatibility")
+    rm_tree(internal_dir / "torch" / "testing")
+    rm_tree(internal_dir / "torch" / "distributed")
+    rm_tree(internal_dir / "torch" / "_inductor")
+    rm_tree(internal_dir / "torch" / "bin")
+    rm_tree(internal_dir / "torch" / "onnx")
+    rm_tree(internal_dir / "torch" / "_export")
+    rm_tree(internal_dir / "torch" / "fx")
+    rm_tree(internal_dir / "torch" / "_functorch")
+    rm_tree(internal_dir / "torch" / "ao")
+    rm_tree(internal_dir / "torch" / "profiler")
+    rm_tree(internal_dir / "torch" / "package")
+    rm_tree(internal_dir / "torch" / "compiler")
+    rm_tree(internal_dir / "torch" / "_strobelight")
+    rm_tree(internal_dir / "torch" / "monitor")
+    rm_tree(internal_dir / "torch" / "contrib")
+    rm_tree(internal_dir / "torch" / "nativert")
+    rm_tree(internal_dir / "torch" / "func")
+    rm_tree(internal_dir / "torch" / "_awaits")
+    rm_tree(internal_dir / "torch" / "accelerator")
+    rm_tree(internal_dir / "torch" / "mtia")
+    rm_tree(internal_dir / "torch" / "xpu")
+    rm_tree(internal_dir / "torch" / "mps")
+    rm_tree(internal_dir / "torch" / "cpu")
+    rm_tree(internal_dir / "torch" / "cuda")
+    rm_tree(internal_dir / "torch" / "numa")
+    rm_tree(internal_dir / "torch" / "futures")
+    rm_tree(internal_dir / "torch" / "signal")
+    rm_tree(internal_dir / "torch" / "_vendor")
+    rm_tree(internal_dir / "torch" / "_lazy")
+    rm_tree(internal_dir / "torch" / "_logging")
+    rm_tree(internal_dir / "torch" / "_numpy")
+    rm_tree(internal_dir / "torch" / "_decomp")
+    rm_tree(internal_dir / "torch" / "_prims")
+    rm_tree(internal_dir / "torch" / "_prims_common")
+    rm_tree(internal_dir / "torch" / "_subclasses")
+    rm_tree(internal_dir / "torch" / "_higher_order_ops")
+    rm_tree(internal_dir / "torch" / "_refs")
+    rm_tree(internal_dir / "torch" / "_library")
+    rm_tree(internal_dir / "torch" / "quantization")
+    rm_tree(internal_dir / "torch" / "optim")
+    rm_tree(internal_dir / "torch" / "nested")
+    rm_tree(internal_dir / "torch" / "distributions")
+    rm_tree(internal_dir / "torch" / "masked")
+    rm_tree(internal_dir / "torch" / "fft")
+    rm_tree(internal_dir / "torch" / "linalg")
+    rm_tree(internal_dir / "torch" / "special")
+    rm_tree(internal_dir / "torch" / "_dynamo")
+    rm_tree(internal_dir / "torch" / "export")
+    # 注意：保留 torch/lib, torch/nn, torch/utils, torch/jit, torch/autograd, torch/backends
+
+    # transformers 自带数据集
+    rm_tree(internal_dir / "transformers" / "data" / "datasets")
+    rm_tree(internal_dir / "transformers" / "data" / "metrics")
+    rm_tree(internal_dir / "transformers" / "data" / "processors")
+
+    # pandas / numpy / scipy 测试
+    rm_tree(internal_dir / "pandas" / "tests")
+    rm_tree(internal_dir / "numpy" / "tests")
+    rm_tree(internal_dir / "numpy" / "core" / "tests")
+    rm_tree(internal_dir / "numpy" / "f2py" / "tests")
+    rm_tree(internal_dir / "numpy" / "linalg" / "tests")
+    rm_tree(internal_dir / "numpy" / "ma" / "tests")
+    rm_tree(internal_dir / "numpy" / "matrixlib" / "tests")
+    rm_tree(internal_dir / "numpy" / "polynomial" / "tests")
+    rm_tree(internal_dir / "numpy" / "random" / "tests")
+    rm_tree(internal_dir / "scipy" / "tests")
+    for sub in ["cluster", "constants", "fft", "integrate", "interpolate", "io", "linalg", "ndimage", "optimize", "signal", "sparse", "spatial", "special", "stats"]:
+        rm_tree(internal_dir / "scipy" / sub / "tests")
+
+    # 清理 __pycache__ 和 .pyc
+    rm_glob(internal_dir, "__pycache__")
+    rm_glob(internal_dir, "*.pyc")
+    rm_glob(internal_dir, "*.pyo")
+    # 清理编译时文件（运行时不需要）
+    rm_glob(internal_dir, "*.lib")
+    rm_glob(internal_dir, "*.h")
+    rm_glob(internal_dir, "*.hpp")
+    rm_glob(internal_dir, "*.cmake")
+    rm_glob(internal_dir, "CMakeLists.txt")
+
+print("[cleanup] Post-build cleanup finished.")

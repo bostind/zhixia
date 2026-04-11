@@ -194,9 +194,39 @@ def feedback(req: FeedbackRequest):
     return {"success": True}
 
 
+def _test_llm_connection() -> dict:
+    """测试 LLM 连接是否可用。"""
+    import llm_client
+    try:
+        client = llm_client.get_client()
+        resp = client.chat.completions.create(
+            model=config.LLM_MODEL,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=5,
+            timeout=10,
+        )
+        if resp and resp.choices:
+            return {"ok": True, "message": "连接正常"}
+        return {"ok": False, "message": "LLM 返回异常"}
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "data_dir": str(config.DATA_DIR)}
+    llm_status = _test_llm_connection()
+    return {
+        "status": "ok",
+        "data_dir": str(config.DATA_DIR),
+        "llm_ok": llm_status["ok"],
+        "llm_message": llm_status["message"],
+    }
+
+
+@app.get("/test_llm")
+def test_llm():
+    """手动测试 LLM 配置是否可连通。"""
+    return _test_llm_connection()
 
 
 @app.post("/query", response_model=QueryResponse)
