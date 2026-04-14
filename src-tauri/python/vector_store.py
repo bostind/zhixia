@@ -7,28 +7,41 @@ from config import get_logger
 
 logger = get_logger(__name__)
 
+_client = None
+_embedding_function = None
+_collection = None
+
 
 def get_client():
-    """获取 ChromaDB 持久化客户端。"""
-    return chromadb.PersistentClient(path=str(config.CHROMA_DIR))
+    """获取 ChromaDB 持久化客户端（带缓存）。"""
+    global _client
+    if _client is None:
+        _client = chromadb.PersistentClient(path=str(config.CHROMA_DIR))
+    return _client
 
 
 def get_embedding_function():
-    """获取本地 Sentence Transformer Embedding 函数。"""
-    return embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=config.EMBEDDING_MODEL
-    )
+    """获取本地 Sentence Transformer Embedding 函数（带缓存）。"""
+    global _embedding_function
+    if _embedding_function is None:
+        _embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=config.EMBEDDING_MODEL
+        )
+    return _embedding_function
 
 
 def get_collection():
-    """获取或创建 collection。"""
-    client = get_client()
-    ef = get_embedding_function()
-    return client.get_or_create_collection(
-        name="filemind_files",
-        embedding_function=ef,
-        metadata={"hnsw:space": "cosine"},
-    )
+    """获取或创建 collection（带缓存）。"""
+    global _collection
+    if _collection is None:
+        client = get_client()
+        ef = get_embedding_function()
+        _collection = client.get_or_create_collection(
+            name="filemind_files",
+            embedding_function=ef,
+            metadata={"hnsw:space": "cosine"},
+        )
+    return _collection
 
 
 def add_document(doc_id: str, text: str, metadata: Dict):

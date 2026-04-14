@@ -214,12 +214,11 @@ def _test_llm_connection() -> dict:
 
 @app.get("/health")
 def health():
-    llm_status = _test_llm_connection()
     return {
         "status": "ok",
         "data_dir": str(config.DATA_DIR),
-        "llm_ok": llm_status["ok"],
-        "llm_message": llm_status["message"],
+        "llm_ok": None,
+        "llm_message": "Use /test_llm for LLM connectivity check",
     }
 
 

@@ -8,6 +8,26 @@ pub struct PythonProcessState {
 }
 
 fn resolve_backend_exe(app_handle: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    // 0. 开发模式优先：如果 ZHIXIA_PYTHON_EXE 指向 python.exe，直接找 main_api.py
+    if let Ok(exe) = std::env::var("ZHIXIA_PYTHON_EXE") {
+        let p = std::path::PathBuf::from(exe.trim());
+        if p.exists() && p.file_name().map(|n| n.to_string_lossy().to_ascii_lowercase().contains("python")).unwrap_or(false) {
+            // 优先在同一目录找 main_api.py（start-dev.bat 场景）
+            let python_dir = p.parent().unwrap_or(std::path::Path::new("."));
+            let script = python_dir.join("main_api.py");
+            if script.exists() {
+                return Ok(script);
+            }
+            // 再尝试向上回溯到 src-tauri/python
+            let alt = python_dir.parent().and_then(|d| d.parent()).map(|d| d.join("src-tauri").join("python").join("main_api.py"));
+            if let Some(alt) = alt {
+                if alt.exists() {
+                    return Ok(alt);
+                }
+            }
+        }
+    }
+
     // 1. 环境变量覆盖：如果直接指向了 bundled backend exe
     if let Ok(exe) = std::env::var("ZHIXIA_PYTHON_EXE") {
         let p = std::path::PathBuf::from(exe.trim());
@@ -17,7 +37,6 @@ fn resolve_backend_exe(app_handle: &tauri::AppHandle) -> Result<std::path::PathB
     }
 
     // 2. 生产包：resources/zhixia-backend/zhixia-backend.exe
-    //    开发模式（resource_dir = src-tauri）：检查 src-tauri/python-dist/zhixia-backend
     let resource_dir = app_handle
         .path()
         .resource_dir()
@@ -43,26 +62,7 @@ fn resolve_backend_exe(app_handle: &tauri::AppHandle) -> Result<std::path::PathB
         ];
         for c in &candidates {
             if c.exists() && c.join("main_api.py").exists() {
-                // 开发阶段 fallback 到系统 python + main_api.py
                 return Ok(c.join("main_api.py"));
-            }
-        }
-    }
-
-    // 4. 环境变量兜底：如果 ZHIXIA_PYTHON_EXE 指向的是 python.exe，尝试在其附近找 main_api.py
-    if let Ok(exe) = std::env::var("ZHIXIA_PYTHON_EXE") {
-        let p = std::path::PathBuf::from(exe.trim());
-        if p.exists() {
-            let python_dir = p.parent().unwrap_or(std::path::Path::new("."));
-            let script = python_dir.join("main_api.py");
-            if script.exists() {
-                return Ok(script);
-            }
-            let alt = python_dir.parent().and_then(|d| d.parent()).map(|d| d.join("src-tauri").join("python").join("main_api.py"));
-            if let Some(alt) = alt {
-                if alt.exists() {
-                    return Ok(alt);
-                }
             }
         }
     }

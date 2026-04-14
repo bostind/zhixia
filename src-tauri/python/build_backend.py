@@ -35,6 +35,10 @@ hiddenimports = [
     "chromadb.utils",
     "chromadb.utils.embedding_functions",
     "chromadb.telemetry.product.posthog",
+    "chromadb.api.rust",
+    "chromadb.api.segment",
+    "chromadb.config",
+    "chromadb_rust_bindings",
     # Transformers / torch
     "transformers",
     "transformers.models.auto",
@@ -121,6 +125,10 @@ for hi in hiddenimports:
 for src, dst in datas:
     args.extend(["--add-data", f"{src};{dst}"])
 
+# 强制收集 chromadb 及其 Rust 扩展（避免打包遗漏）
+args.extend(["--collect-all", "chromadb"])
+args.extend(["--collect-all", "chromadb_rust_bindings"])
+
 print("[build_backend] Running pyinstaller with args:")
 print(" ".join(args))
 
@@ -152,11 +160,8 @@ def rm_glob(root: Path, pattern: str):
         else:
             p.unlink(missing_ok=True)
 
-# 1. 清理我们自己的开发环境数据
-for dev_dir in ["data", "db", "wiki", "logs"]:
-    rm_tree(_HERE / dev_dir)
-for dev_file in [".env", "ingest_manifest.json", "bm25_corpus.json"]:
-    rm_file(_HERE / dev_file)
+# 1. 注意：不要清理 _HERE 下的 data/db/wiki/logs，这会破坏开发环境。
+#    开发数据应保留在 ZHIXIA_DATA_DIR 指定的目录中。
 
 # 2. 清理 PyInstaller 输出中的测试/示例冗余数据（大幅减小体积）
 if internal_dir.exists():
