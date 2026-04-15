@@ -179,6 +179,8 @@ def process_file(file_path: Path) -> str:
             summary = line.split(":", 1)[1].strip()
         if line.startswith("- **标签**:"):
             tags = line.split(":", 1)[1].strip()
+            # 统一中文标点为英文逗号，避免被当成单个标签
+            tags = tags.replace("，", ",").replace("、", ",")
 
     # 6. 更新向量库（先删后加，避免重复）
     doc_id = file_hash

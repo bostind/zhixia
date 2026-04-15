@@ -154,26 +154,6 @@ body {
   background: rgba(0, 212, 255, 0.08);
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 8px #ef4444;
-  margin-top: auto;
-  margin-bottom: 0.5rem;
-}
-
-.status-dot.connected {
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
-}
-
-.status-dot.partial {
-  background: #f59e0b;
-  box-shadow: 0 0 8px #f59e0b;
-}
-
 .main-stage {
   position: relative;
   display: flex;

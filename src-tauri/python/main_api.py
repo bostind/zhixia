@@ -271,7 +271,8 @@ def update_tags(doc_id: str, req: TagsRequest):
             return {"success": False, "error": "Document not found"}
 
         meta = data["metadatas"][0] if data.get("metadatas") else {}
-        meta["tags"] = req.tags
+        normalized_tags = req.tags.replace("，", ",").replace("、", ",")
+        meta["tags"] = normalized_tags
         vector_store.update_metadata(doc_id, meta)
 
         # 同步更新 wiki 文件中的标签行

@@ -8,23 +8,11 @@ pub struct PythonProcessState {
 }
 
 fn resolve_backend_exe(app_handle: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    // 0. 开发模式优先：如果 ZHIXIA_PYTHON_EXE 指向 python.exe，直接找 main_api.py
-    if let Ok(exe) = std::env::var("ZHIXIA_PYTHON_EXE") {
-        let p = std::path::PathBuf::from(exe.trim());
-        if p.exists() && p.file_name().map(|n| n.to_string_lossy().to_ascii_lowercase().contains("python")).unwrap_or(false) {
-            // 优先在同一目录找 main_api.py（start-dev.bat 场景）
-            let python_dir = p.parent().unwrap_or(std::path::Path::new("."));
-            let script = python_dir.join("main_api.py");
-            if script.exists() {
-                return Ok(script);
-            }
-            // 再尝试向上回溯到 src-tauri/python
-            let alt = python_dir.parent().and_then(|d| d.parent()).map(|d| d.join("src-tauri").join("python").join("main_api.py"));
-            if let Some(alt) = alt {
-                if alt.exists() {
-                    return Ok(alt);
-                }
-            }
+    // 0. 开发模式最优先：如果 ZHIXIA_PYTHON_DIR 存在且包含 main_api.py，直接使用
+    if let Ok(dir) = std::env::var("ZHIXIA_PYTHON_DIR") {
+        let script = std::path::PathBuf::from(dir.trim()).join("main_api.py");
+        if script.exists() {
+            return Ok(script);
         }
     }
 

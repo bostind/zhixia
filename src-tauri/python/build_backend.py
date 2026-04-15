@@ -185,7 +185,8 @@ if internal_dir.exists():
     rm_tree(internal_dir / "torch" / "utils" / "data" / "datapipes")
     rm_tree(internal_dir / "torch" / "utils" / "data" / "backward_compatibility")
     rm_tree(internal_dir / "torch" / "testing")
-    rm_tree(internal_dir / "torch" / "distributed")
+    # 注意：不要删除整个 torch/distributed，torch 初始化时会读取其中源码，
+    # PyInstaller 环境下删除后会导致 inspect.getsource() 失败
     rm_tree(internal_dir / "torch" / "_inductor")
     rm_tree(internal_dir / "torch" / "bin")
     rm_tree(internal_dir / "torch" / "onnx")

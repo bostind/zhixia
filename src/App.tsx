@@ -113,9 +113,7 @@ function extractFileExplanations(text: string): Record<string, string> {
 }
 
 export default function App() {
-  const [pythonStatus, setPythonStatus] = useState<string>("connecting...");
-  const [llmOk, setLlmOk] = useState<boolean>(false);
-  const [llmMsg, setLlmMsg] = useState<string>("");
+
   const [files, setFiles] = useState<FileItem[]>([]);
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
@@ -170,32 +168,16 @@ export default function App() {
   }
 
   useEffect(() => {
-    checkHealth();
     loadFiles();
     loadStatus();
     loadLlmSettings();
     const interval = setInterval(() => {
-      checkHealth();
       loadFiles();
       loadStatus();
       loadIngestProgress();
     }, 8000);
     return () => clearInterval(interval);
   }, []);
-
-  async function checkHealth() {
-    try {
-      const res = await fetch(`${API_BASE}/health`);
-      const data = await res.json();
-      setPythonStatus(data.status === "ok" ? "connected" : "error");
-      setLlmOk(!!data.llm_ok);
-      setLlmMsg(data.llm_message || "");
-    } catch (e) {
-      setPythonStatus("disconnected");
-      setLlmOk(false);
-      setLlmMsg("");
-    }
-  }
 
   async function testLlm(): Promise<{ ok: boolean; message: string }> {
     try {
@@ -543,17 +525,95 @@ export default function App() {
     return lines;
   }, [allResultCards, cardPositions, relations]);
 
-  const tagStats = useMemo(() => {
+  const splitTags = (tagsStr: string) => tagsStr.split(/[,，、]/).map((t) => t.trim()).filter(Boolean);
+
+  const { tagClusters, clusteredTagStats } = useMemo(() => {
     const counts: Record<string, number> = {};
     files.forEach((f) => {
       if (f.tags) {
-        f.tags.split(",").forEach((t) => {
-          const tag = t.trim();
-          if (tag) counts[tag] = (counts[tag] || 0) + 1;
+        splitTags(f.tags).forEach((tag) => {
+          counts[tag] = (counts[tag] || 0) + 1;
         });
       }
     });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    const tags = Object.keys(counts);
+    if (tags.length === 0) {
+      return { tagClusters: {} as Record<string, string[]>, clusteredTagStats: [] as [string, number][] };
+    }
+
+    const domainRoots = [
+      "HTML", "CSS", "前端", "页面", "Vue", "React", "Angular", "后端", "API", "接口",
+      "数据库", "SQL", "算法", "模型", "LLM", "AI", "测试", "部署", "设计", "产品",
+      "需求", "会议", "报告", "预算", "合同", "计划", "方案", "调研", "分析", "代码",
+      "系统", "平台", "工具", "流程", "规范", "标准", "文档", "服务", "架构", "安全",
+      "性能", "用户体验", "UI", "UX", "JavaScript", "TypeScript", "Python", "Java",
+      "Git", "DevOps", "运维", "数据", "可视化", "图表", "Excel", "表格", "MES",
+      "工单", "生产", "制造", "工艺", "质量", "设备", "物料", "仓库", "库存", "订单",
+      "客户", "供应商", "采购", "销售", "财务", "成本", "项目", "管理", "培训", "教程"
+    ];
+
+    function hasSharedRoot(a: string, b: string): boolean {
+      return domainRoots.some((r) => a.includes(r) && b.includes(r));
+    }
+
+    function similarity(a: string, b: string): number {
+      if (a === b) return 1;
+      if (a.includes(b) || b.includes(a)) return 1;
+      const setA = new Set<string>();
+      for (let i = 0; i < a.length - 1; i++) setA.add(a.slice(i, i + 2));
+      const setB = new Set<string>();
+      for (let i = 0; i < b.length - 1; i++) setB.add(b.slice(i, i + 2));
+      let inter = 0;
+      setA.forEach((bg) => { if (setB.has(bg)) inter++; });
+      return inter / (setA.size + setB.size - inter);
+    }
+
+    const parent: Record<string, string> = {};
+    tags.forEach((t) => (parent[t] = t));
+    function find(t: string): string {
+      if (parent[t] !== t) parent[t] = find(parent[t]);
+      return parent[t];
+    }
+    function union(a: string, b: string) {
+      const ra = find(a);
+      const rb = find(b);
+      if (ra !== rb) parent[ra] = rb;
+    }
+
+    for (let i = 0; i < tags.length; i++) {
+      for (let j = i + 1; j < tags.length; j++) {
+        const sim = similarity(tags[i], tags[j]);
+        if (sim >= 0.35 || (sim >= 0.25 && hasSharedRoot(tags[i], tags[j]))) {
+          union(tags[i], tags[j]);
+        }
+      }
+    }
+
+    const groups: Record<string, string[]> = {};
+    tags.forEach((t) => {
+      const r = find(t);
+      if (!groups[r]) groups[r] = [];
+      groups[r].push(t);
+    });
+
+    const tagClusters: Record<string, string[]> = {};
+    const clusteredTagStats: [string, number][] = [];
+
+    Object.values(groups).forEach((group) => {
+      group.sort((a, b) => {
+        const diff = counts[b] - counts[a];
+        if (diff !== 0) return diff;
+        return a.length - b.length;
+      });
+      const rep = group[0];
+      const total = group.reduce((sum, t) => sum + counts[t], 0);
+      clusteredTagStats.push([rep, total]);
+      tagClusters[rep] = group;
+    });
+
+    clusteredTagStats.sort((a, b) => b[1] - a[1]);
+    return { tagClusters, clusteredTagStats };
   }, [files]);
 
   const typeDistribution = useMemo(() => {
@@ -567,10 +627,9 @@ export default function App() {
 
   const filteredLibraryFiles = useMemo(() => {
     if (!libraryTagFilter) return files;
-    return files.filter((f) => f.tags && f.tags.split(",").some((t) => t.trim() === libraryTagFilter));
-  }, [files, libraryTagFilter]);
-
-  const statusLabel = pythonStatus === "connected" ? (llmOk ? "在线" : "服务在线") : "离线";
+    const clusterTags = tagClusters[libraryTagFilter] || [libraryTagFilter];
+    return files.filter((f) => f.tags && splitTags(f.tags).some((t) => clusterTags.includes(t)));
+  }, [files, libraryTagFilter, tagClusters]);
 
   return (
     <>
@@ -651,11 +710,6 @@ export default function App() {
                 <div className="sidebar-progress-bar" />
               </div>
             )}
-            <div
-              className={`status-dot ${pythonStatus === "connected" ? (llmOk ? "connected" : "partial") : ""}`}
-              title={`服务: ${pythonStatus === "connected" ? "在线" : "离线"}\nLLM: ${llmOk ? "可用" : llmMsg || "不可用"}`}
-            />
-            <div className="status-label">{statusLabel}</div>
           </div>
         </aside>
 
@@ -1097,7 +1151,7 @@ export default function App() {
                       <div className="library-stat-label">监控目录</div>
                     </div>
                     <div className="library-stat-card">
-                      <div className="library-stat-value">{tagStats.length}</div>
+                      <div className="library-stat-value">{clusteredTagStats.length}</div>
                       <div className="library-stat-label">标签总数</div>
                     </div>
                     <div className="library-stat-card wide">
@@ -1115,15 +1169,16 @@ export default function App() {
                   </div>
 
                   <div className="tag-cloud">
-                    {tagStats.map(([tag, count], idx) => {
+                    {clusteredTagStats.map(([tag, count], idx) => {
                       const scale = 0.8 + Math.min(count * 0.12, 1.0);
                       const hue = (idx * 47 + 180) % 360;
+                      const group = tagClusters[tag] || [tag];
                       return (
                         <button
                           key={tag}
                           className="tag-cloud-item"
                           onClick={() => setLibraryTagFilter(tag)}
-                          title={`出现 ${count} 次`}
+                          title={group.length > 1 ? `包含: ${group.join("、")}（共 ${count} 次）` : `出现 ${count} 次`}
                           style={{
                             fontSize: `${scale}rem`,
                             color: `hsl(${hue}, 85%, 65%)`,
@@ -1135,7 +1190,7 @@ export default function App() {
                         </button>
                       );
                     })}
-                    {tagStats.length === 0 && (
+                    {clusteredTagStats.length === 0 && (
                       <div className="tag-cloud-empty">暂无标签数据，分析文件后会自动生成标签</div>
                     )}
                   </div>
@@ -1200,8 +1255,8 @@ export default function App() {
                                   <>
                                     {f.tags && (
                                       <div className="library-tags" onClick={() => openFile(f.path)}>
-                                        {f.tags.split(",").slice(0, 2).map((t) => (<span key={t} className="library-tag">{t.trim()}</span>))}
-                                        {f.tags.split(",").length > 2 && (<span className="library-tag-more">+{f.tags.split(",").length - 2}</span>)}
+                                        {splitTags(f.tags).slice(0, 2).map((t) => (<span key={t} className="library-tag">{t}</span>))}
+                                        {splitTags(f.tags).length > 2 && (<span className="library-tag-more">+{splitTags(f.tags).length - 2}</span>)}
                                       </div>
                                     )}
                                     <div className="library-actions">
