@@ -39,7 +39,14 @@ function extractPaths(text: string): string[] {
       .trim()
   );
   return Array.from(
-    new Set(cleaned.filter((p) => p.includes("\\") && p.length > 3))
+    new Set(
+      cleaned.filter((p) => {
+        if (!p.includes("\\") || p.length <= 3) return false;
+        const name = p.slice(p.lastIndexOf("\\") + 1);
+        // 排除文件夹：要求文件名必须包含扩展名
+        return name.includes(".") && !name.endsWith(".");
+      })
+    )
   );
 }
 
@@ -527,11 +534,30 @@ export default function App() {
 
   const splitTags = (tagsStr: string) => tagsStr.split(/[,，、]/).map((t) => t.trim()).filter(Boolean);
 
+  const ALIAS_GROUPS = [
+    ["宁德时代", "CATL"],
+    ["HTML", "H5"],
+    ["MES", "制造执行系统"],
+  ];
+
+  function normalizeTag(tag: string): string {
+    const lower = tag.toLowerCase();
+    for (const group of ALIAS_GROUPS) {
+      for (const alias of group) {
+        if (tag === alias || lower === alias.toLowerCase()) {
+          return group[0];
+        }
+      }
+    }
+    return tag;
+  }
+
   const { tagClusters, clusteredTagStats } = useMemo(() => {
     const counts: Record<string, number> = {};
     files.forEach((f) => {
       if (f.tags) {
-        splitTags(f.tags).forEach((tag) => {
+        splitTags(f.tags).forEach((rawTag) => {
+          const tag = normalizeTag(rawTag);
           counts[tag] = (counts[tag] || 0) + 1;
         });
       }
@@ -628,7 +654,7 @@ export default function App() {
   const filteredLibraryFiles = useMemo(() => {
     if (!libraryTagFilter) return files;
     const clusterTags = tagClusters[libraryTagFilter] || [libraryTagFilter];
-    return files.filter((f) => f.tags && splitTags(f.tags).some((t) => clusterTags.includes(t)));
+    return files.filter((f) => f.tags && splitTags(f.tags).map(normalizeTag).some((t) => clusterTags.includes(t)));
   }, [files, libraryTagFilter, tagClusters]);
 
   return (
@@ -1169,7 +1195,7 @@ export default function App() {
                   </div>
 
                   <div className="tag-cloud">
-                    {clusteredTagStats.map(([tag, count], idx) => {
+                    {clusteredTagStats.slice(0, 20).map(([tag, count], idx) => {
                       const scale = 0.8 + Math.min(count * 0.12, 1.0);
                       const hue = (idx * 47 + 180) % 360;
                       const group = tagClusters[tag] || [tag];
@@ -1255,7 +1281,7 @@ export default function App() {
                                   <>
                                     {f.tags && (
                                       <div className="library-tags" onClick={() => openFile(f.path)}>
-                                        {splitTags(f.tags).slice(0, 2).map((t) => (<span key={t} className="library-tag">{t}</span>))}
+                                        {splitTags(f.tags).slice(0, 2).map((t) => (<span key={t} className="library-tag">{normalizeTag(t)}</span>))}
                                         {splitTags(f.tags).length > 2 && (<span className="library-tag-more">+{splitTags(f.tags).length - 2}</span>)}
                                       </div>
                                     )}

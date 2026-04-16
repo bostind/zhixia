@@ -176,7 +176,9 @@ body {
 }
 
 .search-stage.has-results {
-  transform: translateY(-28vh);
+  transform: translateY(-120%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .search-hint {
@@ -303,11 +305,11 @@ body {
 /* 结果星云区域 */
 .constellation {
   position: absolute;
-  top: 34vh;
+  top: 8vh;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 1.5rem 2rem 3rem;
+  padding: 1rem 2rem 3rem;
   overflow: auto;
   opacity: 0;
   transform: translateY(20px);
@@ -3000,9 +3002,12 @@ body {
     padding: 1.25rem;
   }
   .search-stage.has-results {
-    transform: translateY(-18vh);
+    transform: translateY(-120%);
+    opacity: 0;
+    pointer-events: none;
   }
   .constellation {
+    top: 6vh;
     padding: 1rem 1.25rem 2rem;
   }
   .orbit.graph-orbit {
@@ -3018,7 +3023,9 @@ body {
     padding: 0.75rem;
   }
   .search-stage.has-results {
-    transform: translateY(-10vh);
+    transform: translateY(-120%);
+    opacity: 0;
+    pointer-events: none;
   }
   .search-input {
     padding: 0.8rem 1rem;
@@ -3042,6 +3049,7 @@ body {
     margin-bottom: 1.5rem;
   }
   .constellation {
+    top: 4vh;
     padding: 0.75rem 0.75rem 1.5rem;
   }
   .constellation-inner {
@@ -3088,7 +3096,9 @@ body {
     padding: 0.5rem;
   }
   .search-stage.has-results {
-    transform: translateY(-6vh);
+    transform: translateY(-120%);
+    opacity: 0;
+    pointer-events: none;
   }
   .result-actions {
     flex-direction: column;
@@ -3118,7 +3128,9 @@ body {
 
 @media (max-height: 640px) {
   .search-stage.has-results {
-    transform: translateY(-6vh);
+    transform: translateY(-120%);
+    opacity: 0;
+    pointer-events: none;
   }
   .orbit.graph-orbit {
     height: 280px;

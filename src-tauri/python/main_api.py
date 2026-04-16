@@ -61,6 +61,21 @@ watcher_thread.start()
 ingest_worker.start_worker()
 
 
+def _warmup_vector_store():
+    """后台预热向量库，避免首次 API 请求时加载模型卡顿。"""
+    logger = get_logger(__name__)
+    try:
+        start = time.time()
+        vector_store.get_collection()
+        logger.info("Vector store warmed up in %.2fs", time.time() - start)
+    except Exception as e:
+        logger.warning("Vector store warmup failed (will retry on first request): %s", e)
+
+
+warmup_thread = threading.Thread(target=_warmup_vector_store, daemon=True)
+warmup_thread.start()
+
+
 def _startup_ingest():
     """启动时反向清理孤儿数据，再扫描已有文件推入队列。"""
     logger = get_logger(__name__)
@@ -348,10 +363,19 @@ def get_watch_dirs():
 
 @app.post("/watch_dirs")
 def set_watch_dirs(req: WatchDirsRequest):
-    """更新监控目录并重启文件监控。"""
+    """更新监控目录并重启文件监控，同时后台清理旧目录留下的孤儿索引。"""
     valid = [Path(d) for d in req.dirs if Path(d).exists()]
     config.save_watch_dirs(valid)
     watcher.watcher_manager.restart()
+
+    def _cleanup_after_switch():
+        time.sleep(1)
+        logger = get_logger(__name__)
+        logger.info("Watch dirs changed, cleaning up orphaned entries...")
+        ingest_worker.cleanup_orphans()
+        logger.info("Post-switch cleanup complete.")
+
+    threading.Thread(target=_cleanup_after_switch, daemon=True).start()
     return {"dirs": [str(d) for d in valid]}
 
 

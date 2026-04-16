@@ -138,49 +138,58 @@ def process_file(file_path: Path) -> str:
         logger.info("Skipped (empty content): %s", file_path)
         return ""
 
-    # 2. 查找相似文件
-    similar_files = _get_similar_files(text)
-
-    # 3. 调用 LLM 生成 wiki 内容
-    prompt = _build_ingest_prompt(file_path.name, text, similar_files)
-    raw_md = llm_client.chat_completion(
-        system_prompt="你是一个严谨的个人知识管理助手，擅长从文件中提取关键信息并建立关联。",
-        user_prompt=prompt,
-        temperature=0.3,
-        model=config.LLM_INGEST_MODEL,
-    )
-    wiki_content = _parse_wiki_content(raw_md)
-
-    # 修正路径和文件名占位符（LLM 可能不会完全按要求填）
     file_hash = _file_hash(file_path)
     wiki_path = config.WIKI_FILES_DIR / f"{file_hash}.md"
-
-    # 确保路径和修改时间正确
     mtime_str = datetime.fromtimestamp(file_path.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
-    lines = wiki_content.splitlines()
-    new_lines = []
-    for line in lines:
-        if line.strip().startswith("- **路径**:"):
-            line = f"- **路径**: {file_path.resolve()}"
-        elif line.strip().startswith("- **修改时间**:"):
-            line = f"- **修改时间**: {mtime_str}"
-        new_lines.append(line)
-    wiki_content = "\n".join(new_lines)
 
-    # 4. 写入 wiki 页
-    wiki_path.write_text(wiki_content, encoding="utf-8")
-    logger.info("Wiki saved: %s", wiki_path)
+    # 1.5 提取失败防护：避免 LLM 从错误信息里生成“未提取内容”等垃圾标签
+    is_extraction_failed = text.strip().startswith("[") and "failed" in text.lower()
 
-    # 5. 提取摘要和标签用于索引（从生成的内容里简单解析）
-    summary = "暂无摘要"
-    tags = "未分类"
-    for line in wiki_content.splitlines():
-        if line.startswith("- **摘要**:"):
-            summary = line.split(":", 1)[1].strip()
-        if line.startswith("- **标签**:"):
-            tags = line.split(":", 1)[1].strip()
-            # 统一中文标点为英文逗号，避免被当成单个标签
-            tags = tags.replace("，", ",").replace("、", ",")
+    if is_extraction_failed:
+        logger.warning("Extraction failed for %s: %s", file_path, text)
+        wiki_content = f"# {file_path.name}\n\n- **路径**: {file_path.resolve()}\n- **修改时间**: {mtime_str}\n- **摘要**: {text.strip()}\n- **标签**: 解析失败\n"
+        wiki_path.write_text(wiki_content, encoding="utf-8")
+        summary = text.strip()
+        tags = "解析失败"
+    else:
+        # 2. 查找相似文件
+        similar_files = _get_similar_files(text)
+
+        # 3. 调用 LLM 生成 wiki 内容
+        prompt = _build_ingest_prompt(file_path.name, text, similar_files)
+        raw_md = llm_client.chat_completion(
+            system_prompt="你是一个严谨的个人知识管理助手，擅长从文件中提取关键信息并建立关联。",
+            user_prompt=prompt,
+            temperature=0.3,
+            model=config.LLM_INGEST_MODEL,
+        )
+        wiki_content = _parse_wiki_content(raw_md)
+
+        # 修正路径和文件名占位符（LLM 可能不会完全按要求填）
+        lines = wiki_content.splitlines()
+        new_lines = []
+        for line in lines:
+            if line.strip().startswith("- **路径**:"):
+                line = f"- **路径**: {file_path.resolve()}"
+            elif line.strip().startswith("- **修改时间**:"):
+                line = f"- **修改时间**: {mtime_str}"
+            new_lines.append(line)
+        wiki_content = "\n".join(new_lines)
+
+        # 4. 写入 wiki 页
+        wiki_path.write_text(wiki_content, encoding="utf-8")
+        logger.info("Wiki saved: %s", wiki_path)
+
+        # 5. 提取摘要和标签用于索引（从生成的内容里简单解析）
+        summary = "暂无摘要"
+        tags = "未分类"
+        for line in wiki_content.splitlines():
+            if line.startswith("- **摘要**:"):
+                summary = line.split(":", 1)[1].strip()
+            if line.startswith("- **标签**:"):
+                tags = line.split(":", 1)[1].strip()
+                # 统一中文标点为英文逗号，避免被当成单个标签
+                tags = tags.replace("，", ",").replace("、", ",")
 
     # 6. 更新向量库（先删后加，避免重复）
     doc_id = file_hash
