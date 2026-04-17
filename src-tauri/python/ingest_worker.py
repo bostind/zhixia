@@ -203,9 +203,6 @@ def _process_one(file_path_str: str):
     try:
         ingest.process_file(path)
         _update_manifest(path)
-        # 更新 BM25 索引
-        text = extractor.extract_text(path)
-        bm25_index.add_document(hashlib.md5(key.encode("utf-8")).hexdigest()[:16], text, filename=path.name)
         _update_progress(key, "done")
         # 文件内容变化后，清空 query 缓存
         try:

@@ -49,10 +49,11 @@ def _rebuild_index():
         _bm25 = None
 
 
-def add_document(doc_id: str, text: str, filename: str = ""):
+def add_document(doc_id: str, text: str, filename: str = "", tags: str = "", summary: str = ""):
     """添加或更新文档到 BM25 索引。"""
     global _bm25
-    combined = f"{filename} {text}".strip()
+    parts = [filename, summary, tags, text]
+    combined = " ".join(p for p in parts if p).strip()
     _corpus[doc_id] = combined
     _save_corpus()
     _rebuild_index()

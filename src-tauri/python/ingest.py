@@ -7,6 +7,7 @@ import config
 from config import get_logger
 import extractor
 import vector_store
+import bm25_index
 import llm_client
 
 logger = get_logger(__name__)
@@ -191,15 +192,16 @@ def process_file(file_path: Path) -> str:
                 # 统一中文标点为英文逗号，避免被当成单个标签
                 tags = tags.replace("，", ",").replace("、", ",")
 
-    # 6. 更新向量库（先删后加，避免重复）
+    # 6. 更新向量库（先删后加，避免重复），把标签和摘要也拼入可搜索文本
     doc_id = file_hash
+    searchable_text = f"{text}\n\n标签: {tags}\n摘要: {summary}"
     try:
         vector_store.delete_document(doc_id)
     except Exception:
         pass
     vector_store.add_document(
         doc_id=doc_id,
-        text=text,
+        text=searchable_text,
         metadata={
             "filename": file_path.name,
             "path": str(file_path.resolve()),
@@ -209,6 +211,16 @@ def process_file(file_path: Path) -> str:
         },
     )
     logger.info("Vector added: %s", doc_id)
+
+    # 6.5 更新 BM25 索引（包含标签和摘要，用于关键词搜索）
+    bm25_index.add_document(
+        doc_id=doc_id,
+        text=text,
+        filename=file_path.name,
+        tags=tags,
+        summary=summary,
+    )
+    logger.info("BM25 added: %s", doc_id)
 
     # 7. 更新索引和日志
     _update_index(file_path, summary, tags)
