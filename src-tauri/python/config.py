@@ -133,8 +133,12 @@ def save_llm_settings(api_key: str, base_url: str, model: str, ingest_model: str
     LLM_QUERY_MODEL = payload["query_model"]
 
 
-# 本地 Embedding 模型（已下载到项目目录，避免运行时联网）
-EMBEDDING_MODEL = str(BASE_DIR / "models" / "bge-small-zh-v1.5")
+# 本地 Embedding 模型（优先使用项目目录中预置的模型，否则回退到 HuggingFace 自动下载）
+_local_model = BASE_DIR / "models" / "bge-small-zh-v1.5"
+if _local_model.exists():
+    EMBEDDING_MODEL = str(_local_model)
+else:
+    EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"
 
 # ================== 日志配置 ==================
 import logging

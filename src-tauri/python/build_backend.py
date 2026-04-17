@@ -101,10 +101,13 @@ hiddenimports = [
     "csv",
 ]
 
-datas = [
-    # Models
-    (str(_HERE / "models" / "bge-small-zh-v1.5"), "models/bge-small-zh-v1.5"),
-]
+# Models (仅在本地存在时打包; 否则运行时依赖 HuggingFace 自动下载)
+_model_path = _HERE / "models" / "bge-small-zh-v1.5"
+datas = []
+if _model_path.exists():
+    datas.append((str(_model_path), "models/bge-small-zh-v1.5"))
+else:
+    print(f"[build_backend] Warning: model directory {_model_path} not found, skipping model bundling.")
 
 # PyInstaller command line args
 args = [
