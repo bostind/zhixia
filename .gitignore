@@ -24,7 +24,8 @@ dist-ssr
 *.sw?
 
 # Local embedding models (large binaries)
-src-tauri/python/models/
+# src-tauri/python/models/
+# (bge-small-zh-v1.5 is committed for offline builds)
 
 # Python runtime
 src-tauri/python/__pycache__/
