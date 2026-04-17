@@ -58,6 +58,6 @@ jobs:
             知匣桌面端安装包（Windows）
             - 下载 `.msi` 文件即可安装
             - 首次安装后请在设置中配置 LLM (Endpoint ID)
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
